@@ -1,0 +1,8 @@
+<resources>
+    <color name="rulegram_bg">#EAF4FF</color>
+    <color name="rulegram_text">#24458F</color>
+    <color name="rulegram_muted">#5B78A9</color>
+    <color name="rulegram_blue">#3B8DFF</color>
+    <color name="rulegram_blue_dark">#1E66D0</color>
+    <color name="white">#FFFFFF</color>
+</resources>
