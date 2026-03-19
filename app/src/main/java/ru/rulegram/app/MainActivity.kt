@@ -1,152 +1,181 @@
 package ru.rulegram.app
 
 import android.annotation.SuppressLint
-import android.content.ActivityNotFoundException
-import android.content.Intent
-import android.net.Uri
+import android.graphics.Bitmap
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
-import android.webkit.CookieManager
-import android.webkit.GeolocationPermissions
-import android.webkit.PermissionRequest
-import android.webkit.ValueCallback
+import android.view.ViewGroup
 import android.webkit.WebChromeClient
-import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
+import android.webkit.WebResourceError
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import ru.rulegram.app.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityMainBinding
-    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private lateinit var webView: WebView
+    private lateinit var progressBar: ProgressBar
+    private lateinit var errorBox: LinearLayout
+    private lateinit var errorText: TextView
+    private lateinit var retryButton: Button
 
-    private val filePicker =
-        registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-            filePathCallback?.onReceiveValue(uris.toTypedArray())
-            filePathCallback = null
-        }
+    private val startUrl = "https://rulegram.ru/"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
-        binding.topTitle.text = getString(R.string.app_name)
-        binding.retryButton.setOnClickListener { binding.webView.loadUrl(BuildFlags.START_URL) }
-        binding.swipeRefresh.setOnRefreshListener { binding.webView.reload() }
+        val root = FrameLayout(this)
 
-        val cookies = CookieManager.getInstance()
-        cookies.setAcceptCookie(true)
-        cookies.setAcceptThirdPartyCookies(binding.webView, true)
-
-        with(binding.webView.settings) {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            databaseEnabled = true
-            allowFileAccess = true
-            allowContentAccess = true
-            mediaPlaybackRequiresUserGesture = false
-            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-            cacheMode = WebSettings.LOAD_DEFAULT
-            builtInZoomControls = false
-            displayZoomControls = false
-            userAgentString = userAgentString + " RulegramAndroid/0.2"
+        webView = WebView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
         }
 
-        binding.webView.webChromeClient = object : WebChromeClient() {
-            override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                binding.progressBar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
-                binding.progressBar.progress = newProgress
-                if (newProgress == 100) binding.swipeRefresh.isRefreshing = false
-            }
+        progressBar = ProgressBar(this).apply {
+            isIndeterminate = true
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
+            )
+        }
 
-            override fun onPermissionRequest(request: PermissionRequest?) {
-                request?.grant(request.resources)
-            }
+        errorText = TextView(this).apply {
+            text = "Не удалось открыть Rulegram"
+            textSize = 18f
+            gravity = Gravity.CENTER
+        }
 
-            override fun onGeolocationPermissionsShowPrompt(
-                origin: String?,
-                callback: GeolocationPermissions.Callback?
-            ) {
-                callback?.invoke(origin, true, false)
+        retryButton = Button(this).apply {
+            text = "Повторить"
+            setOnClickListener {
+                errorBox.visibility = View.GONE
+                webView.visibility = View.VISIBLE
+                webView.loadUrl(startUrl)
             }
+        }
 
-            override fun onShowFileChooser(
-                webView: WebView?,
-                filePathCallback: ValueCallback<Array<Uri>>?,
-                fileChooserParams: FileChooserParams?
-            ): Boolean {
-                this@MainActivity.filePathCallback?.onReceiveValue(null)
-                this@MainActivity.filePathCallback = filePathCallback
-                return try {
-                    filePicker.launch(arrayOf("*/*"))
-                    true
-                } catch (_: Exception) {
-                    this@MainActivity.filePathCallback = null
-                    false
+        errorBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            addView(
+                errorText,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = 24
                 }
-            }
+            )
+            addView(
+                retryButton,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            )
         }
 
-        binding.webView.webViewClient = object : WebViewClient() {
+        root.addView(webView)
+        root.addView(progressBar)
+        root.addView(errorBox)
+
+        setContentView(root)
+
+        val settings = webView.settings
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.loadsImagesAutomatically = true
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        settings.useWideViewPort = true
+        settings.loadWithOverviewMode = true
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        settings.mediaPlaybackRequiresUserGesture = false
+
+        webView.webChromeClient = WebChromeClient()
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                progressBar.visibility = View.VISIBLE
+                errorBox.visibility = View.GONE
+                webView.visibility = View.VISIBLE
+                super.onPageStarted(view, url, favicon)
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
-                binding.errorContainer.visibility = View.GONE
-                binding.webView.visibility = View.VISIBLE
-                binding.swipeRefresh.isRefreshing = false
+                progressBar.visibility = View.GONE
+                super.onPageFinished(view, url)
             }
 
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                val url = request?.url?.toString().orEmpty()
-                return if (url.startsWith("http://") || url.startsWith("https://")) {
-                    false
+            @Deprecated("Deprecated in Java")
+            override fun onReceivedError(
+                view: WebView?,
+                errorCode: Int,
+                description: String?,
+                failingUrl: String?
+            ) {
+                showError()
+                super.onReceivedError(view, errorCode, description, failingUrl)
+            }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: android.webkit.WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                if (request?.isForMainFrame == true) {
+                    showError()
+                }
+                super.onReceivedError(view, request, error)
+            }
+
+            private fun showError() {
+                progressBar.visibility = View.GONE
+                webView.visibility = View.GONE
+                errorBox.visibility = View.VISIBLE
+            }
+        }
+
+        if (savedInstanceState != null) {
+            webView.restoreState(savedInstanceState)
+        } else {
+            webView.loadUrl(startUrl)
+        }
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack()
                 } else {
-                    try {
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                    } catch (_: ActivityNotFoundException) {
-                    }
-                    true
+                    finish()
                 }
             }
-
-            override fun onReceivedHttpError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                errorResponse: WebResourceResponse?
-            ) {
-                if (request?.isForMainFrame == true) showError()
-            }
-        }
-
-        if (savedInstanceState == null) {
-            binding.webView.loadUrl(BuildFlags.START_URL)
-        } else {
-            binding.webView.restoreState(savedInstanceState)
-        }
-    }
-
-    private fun showError() {
-        binding.swipeRefresh.isRefreshing = false
-        binding.webView.visibility = View.GONE
-        binding.errorContainer.visibility = View.VISIBLE
+        })
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        binding.webView.saveState(outState)
+        webView.saveState(outState)
         super.onSaveInstanceState(outState)
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (binding.webView.canGoBack()) {
-            binding.webView.goBack()
-        } else {
-            super.onBackPressed()
-        }
+    override fun onDestroy() {
+        webView.destroy()
+        super.onDestroy()
     }
 }
