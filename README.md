@@ -1,8 +1,10 @@
 # Rulegram Android
 
-Чистый Android-клиент Rulegram без TDLib.
+Чистый Android-клиент Rulegram без TDLib и без Telegram-базы.
 
-- Иконка: логотип Rulegram
-- Экран: светлая тема
-- Контент: WebView на https://rulegram.ru/
-- Сборка APK: GitHub Actions
+Что делает:
+- открывает https://rulegram.ru/
+- хранит сессию внутри WebView
+- поддерживает кнопку Назад
+- поддерживает pull-to-refresh
+- собирается через GitHub Actions

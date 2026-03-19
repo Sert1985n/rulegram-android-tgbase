@@ -1,6 +1,4 @@
 <resources>
     <string name="app_name">Rulegram</string>
-    <string name="error_title">Не удалось открыть Rulegram</string>
-    <string name="error_text">Проверь сеть или сервер, потом нажми Повторить.</string>
-    <string name="retry">Повторить</string>
+    <string name="rulegram_url">https://rulegram.ru/</string>
 </resources>
