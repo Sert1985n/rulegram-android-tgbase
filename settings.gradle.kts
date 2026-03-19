@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RulegramAndroid"
+rootProject.name = "Rulegram"
 include(":app")
